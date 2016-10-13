@@ -1,10 +1,57 @@
 ﻿  param(
     [Parameter()]
-    [string]$Channel = $null,
+    [string]$Channel = $NULL,
 
     [Parameter()]
-    [switch]$RollBack
+    [switch]$RollBack,
+
+    [Parameter()]
+    [bool]$SendExitCode = $false
   )
+
+function Get-CurrentLineNumber {
+    $MyInvocation.ScriptLineNumber
+}
+
+
+function Get-CurrentFileName{
+    $MyInvocation.ScriptName.Substring($MyInvocation.ScriptName.LastIndexOf("\")+1)
+}
+
+function Get-CurrentFunctionName {
+    (Get-Variable MyInvocation -Scope 1).Value.MyCommand.Name;
+}
+
+
+
+
+
+
+Function WriteToLogFile() {
+    param( 
+      [Parameter(Mandatory=$true)]
+      [string]$LNumber,
+      [Parameter(Mandatory=$true)]
+      [string]$FName,
+      [Parameter(Mandatory=$true)]
+      [string]$ActionError
+   )
+   try{
+   $headerString = "Time".PadRight(30, ' ') + "Line Number".PadRight(15,' ') + "FileName".PadRight(60,' ') + "Action"
+   $stringToWrite = $(Get-Date -Format G).PadRight(30, ' ') + $($LNumber).PadRight(15, ' ') + $($FName).PadRight(60,' ') + $ActionError
+   #check if file exists, create if it doesn't
+   if(Test-Path C:\Windows\Temp\OfficeAutoScriptLog.txt){#if exists, append
+   
+        Add-Content C:\Windows\Temp\OfficeAutoScriptLog.txt $stringToWrite
+   }
+   else{#if not exists, create new
+        Add-Content C:\Windows\Temp\OfficeAutoScriptLog.txt $headerString
+        Add-Content C:\Windows\Temp\OfficeAutoScriptLog.txt $stringToWrite
+   }
+   } catch [Exception]{
+   Write-Host $_
+   }
+}
 
 Function Get-ScriptPath() {
   [CmdletBinding()]
@@ -59,6 +106,10 @@ Function Wait-ForOfficeCTRUpadate() {
 
     process {
        Write-Host "Waiting for Update process to Complete..."
+       <# write log#>
+        $lineNum = Get-CurrentLineNumber    
+        $filName = Get-CurrentFileName 
+        WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "Waiting for Update process to Complete..."
 
        [datetime]$operationStart = Get-Date
        [datetime]$totalOperationStart = Get-Date
@@ -122,6 +173,10 @@ Function Wait-ForOfficeCTRUpadate() {
                                 $displayText = $statusName + "`t" + $operationTime
 
                                 Write-Host $displayText
+                                <# write log#>
+                                $lineNum = Get-CurrentLineNumber    
+                                $filName = Get-CurrentFileName 
+                                WriteToLogFile -LNumber $lineNum -FName $filName -ActionError $displayText
                             }
                         }
                     } else {
@@ -137,14 +192,26 @@ Function Wait-ForOfficeCTRUpadate() {
 
                              if ($operation.ToUpper().IndexOf("DOWNLOAD") -gt -1) {
                                 Write-Host "Downloading Update: " -NoNewline
+                                <# write log#>
+                                $lineNum = Get-CurrentLineNumber    
+                                $filName = Get-CurrentFileName 
+                                WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "Downloading Update: "
                              }
 
                              if ($operation.ToUpper().IndexOf("APPLY") -gt -1) {
                                 Write-Host "Applying Update: " -NoNewline
+                                <# write log#>
+                                $lineNum = Get-CurrentLineNumber    
+                                $filName = Get-CurrentFileName 
+                                WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "Applying Update: "
                              }
 
                              if ($operation.ToUpper().IndexOf("FINALIZE") -gt -1) {
                                 Write-Host "Finalizing Update: " -NoNewline
+                                <# write log#>
+                                $lineNum = Get-CurrentLineNumber    
+                                $filName = Get-CurrentFileName 
+                                WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "Finalizing Update: "
                              }
 
                              #Write-Host $displayValue
@@ -180,18 +247,34 @@ Function Wait-ForOfficeCTRUpadate() {
        }
 
        Write-Host $displayValue
+       <# write log#>
+        $lineNum = Get-CurrentLineNumber    
+        $filName = Get-CurrentFileName 
+        WriteToLogFile -LNumber $lineNum -FName $filName -ActionError $displayValue
 
        $totalOperationTime = getOperationTime -OperationStart $totalOperationStart
 
        if ($updateRunning) {
           if ($failure) {
             Write-Host "Update Failed"
+            <# write log#>
+            $lineNum = Get-CurrentLineNumber    
+            $filName = Get-CurrentFileName 
+            WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "Update Failed"
             throw "Update Failed"
           } else {
             Write-Host "Update Completed - Total Time: $totalOperationTime"
+            <# write log#>
+            $lineNum = Get-CurrentLineNumber    
+            $filName = Get-CurrentFileName 
+            WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "Update Completed - Total Time: $totalOperationTime"
           }
        } else {
           Write-Host "Update Not Running"
+          <# write log#>
+            $lineNum = Get-CurrentLineNumber    
+            $filName = Get-CurrentFileName 
+            WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "Update Not Running"
        } 
     }
 }
@@ -280,6 +363,33 @@ Function Test-UpdateSource() {
     return $sourceIsAlive
 }
 
+Function Test-Url() {
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$true)]
+        [string] $Url = $NULL
+    )
+
+# First we create the request.
+$HTTP_Request = [System.Net.WebRequest]::Create($Url)
+
+# We then get a response from the site.
+$HTTP_Response = $HTTP_Request.GetResponse()
+
+# We then get the HTTP code as an integer.
+$HTTP_Status = [int]$HTTP_Response.StatusCode
+
+# Finally, we clean up the http request by closing it.
+$HTTP_Response.Close()
+
+If ($HTTP_Status -eq 200) { 
+    return $true
+}
+Else {
+    return $false
+}
+}
+
 Function Validate-UpdateSource() {
     [CmdletBinding()]
     Param(
@@ -340,21 +450,36 @@ Function Get-LatestVersion() {
     [array]$totalVersion = @()
     $Version = $null
 
-    $LatestBranchVersionPath = $UpdateURLPath + '\Office\Data'
-    if(Test-Path $LatestBranchVersionPath){
-        $DirectoryList = Get-ChildItem $LatestBranchVersionPath
-        Foreach($listItem in $DirectoryList){
-            if($listItem.GetType().Name -eq 'DirectoryInfo'){
-                $totalVersion+=$listItem.Name
+    $isUrl = $UpdateURLPath -like 'http*'
+
+    $tempUpdateURLPath = "$UpdateURLPath/Office/Data/v32.cab"
+
+    if ($isUrl) {
+        $cabXml = Get-UrlCabXml -UpdateURLPath $tempUpdateURLPath
+        if ($cabXml) {
+            $availNode = $cabXml.Version.Available
+            $currentVersion = $availNode.Build
+            if ($currentVersion) {
+               $Version = $currentVersion
             }
         }
-    }
+    } else {
+        $LatestBranchVersionPath = $UpdateURLPath + '\Office\Data'
+        if(Test-Path $LatestBranchVersionPath){
+            $DirectoryList = Get-ChildItem $LatestBranchVersionPath
+            Foreach($listItem in $DirectoryList){
+                if($listItem.GetType().Name -eq 'DirectoryInfo'){
+                    $totalVersion+=$listItem.Name
+                }
+            }
+        }
 
-    $totalVersion = $totalVersion | Sort-Object -Descending
+        $totalVersion = $totalVersion | Sort-Object -Descending
     
-    #sets version number to the newest version in directory for channel if version is not set by user in argument  
-    if($totalVersion.Count -gt 0){
-        $Version = $totalVersion[0]
+        #sets version number to the newest version in directory for channel if version is not set by user in argument  
+        if($totalVersion.Count -gt 0){
+            $Version = $totalVersion[0]
+        }
     }
 
     return $Version
@@ -506,6 +631,29 @@ function Get-ChannelUrl() {
    }
 }
 
+function Get-UrlCabXml() {
+   [CmdletBinding()]
+   Param(
+     [Parameter(Mandatory=$true)]
+     [string] $UpdateURLPath
+   )
+
+   process {
+       $webclient = New-Object System.Net.WebClient
+       $XMLFilePath = "$env:TEMP/v32.cab"
+       $XMLDownloadURL = $UpdateURLPath
+       $webclient.DownloadFile($XMLDownloadURL,$XMLFilePath)
+
+       $tmpName = "VersionDescriptor.xml"
+       expand $XMLFilePath $env:TEMP -f:$tmpName | Out-Null
+       $tmpName = $env:TEMP + "\VersionDescriptor.xml"
+       [xml]$channelXml = Get-Content $tmpName
+
+       return $channelXml
+   }
+
+}
+
 function Get-ChannelXml() {
    [CmdletBinding()]
    param( 
@@ -522,15 +670,9 @@ function Get-ChannelXml() {
            $webclient.DownloadFile($XMLDownloadURL,$XMLFilePath)
        }
 
-       if($PSVersionTable.PSVersion.Major -ge '3'){
-           $tmpName = "o365client_64bit.xml"
-           expand $XMLFilePath $env:TEMP -f:$tmpName | Out-Null
-           $tmpName = $env:TEMP + "\o365client_64bit.xml"
-       }else {
-           $scriptPath = Get-ScriptPath
-           $tmpName = $scriptPath + "\o365client_64bit.xml"           
-       }
-
+       $tmpName = "o365client_64bit.xml"
+       expand $XMLFilePath $env:TEMP -f:$tmpName | Out-Null
+       $tmpName = $env:TEMP + "\o365client_64bit.xml"
        [xml]$channelXml = Get-Content $tmpName
 
        return $channelXml
@@ -621,6 +763,7 @@ try {
         $UpdateURLPath  = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Office\ClickToRun\Configuration").UpdateUrl
         $PolicyPath = $false
     }
+
     if (!($UpdateURLPath)) {
         $UpdateURLPath = Get-ScriptPath
         $SetBack = $true
@@ -630,9 +773,10 @@ try {
            $UpdateURLPath = $TmpUpdateUrlPath
         }
     }
-    else{
+    else
+    {
         $urlPathChk = Test-Path $UpdateURLPath
-        if(!$urlPathChk){
+        if(!($urlPathChk)){
             $UpdateURLPath = Get-ScriptPath
             $SetBack = $true
 
@@ -645,12 +789,33 @@ try {
 
     $OldUpdatePath = $UpdateURLPath
 
-    if ($RollBack) {
-       $Channel = (Detect-Channel).branch
+    $detectChannelUrl = $NULL
+    $detectChannel = (Detect-Channel)
+    if ($detectChannel) {
+        $detectChannelBranch = $detectChannel.Branch
+        $detectChannelUrl = $detectChannel.Url
     }
 
-    $UpdateURLPath = Change-UpdatePathToChannel -Channel $Channel -UpdatePath $UpdateURLPath
-   
+    if ($RollBack) {
+       $Channel = $detectChannelBranch
+    }
+
+    [bool]$updateUrlIsCdn = $false
+    if ($detectChannelUrl) {
+      if ($detectChannelUrl -like '*officecdn.microsoft.com*') {
+          $updateUrlIsCdn = $true
+      }
+    }
+
+    if ($updateUrlIsCdn) {
+      $newChannelUrl = Get-ChannelUrl -Channel $Channel
+      if ($newChannelUrl) {
+         $UpdateURLPath = $newChannelUrl.Url
+      }
+    } else {
+      $UpdateURLPath = Change-UpdatePathToChannel -Channel $Channel -UpdatePath $UpdateURLPath
+    }
+  
     $validSource = Test-UpdateSource -UpdateSource $UpdateURLPath
     if (!($validSource)) {
         throw "UpdateSource not Valid $UpdateURLPath"
@@ -706,15 +871,27 @@ try {
         }
     } else {
         Write-Host "The client already has version installed: $Version"
+        <# write log#>
+        $lineNum = Get-CurrentLineNumber    
+        $filName = Get-CurrentFileName 
+        WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "The client already has version installed: $Version"
 
         if (!($RollBack)) {
            Set-OfficeCDNUrl -Channel $Channel
         }
+
+        Remove-ItemProperty $Office2RClientKey -Name BackupUpdateUrl -Force -ErrorAction SilentlyContinue | Out-Null
     }
-    [System.Environment]::Exit(0)
+    if ($SendExitCode) {
+       [System.Environment]::Exit(0)
+    }
 } catch {
   Write-Host $_ -ForegroundColor Red
+  $fileName = $_.InvocationInfo.ScriptName.Substring($_.InvocationInfo.ScriptName.LastIndexOf("\")+1)
+    WriteToLogFile -LNumber $_.InvocationInfo.ScriptLineNumber -FName $fileName -ActionError $_
   $Error = $null
-  [System.Environment]::Exit(1)
+  if ($SendExitCode) {
+      [System.Environment]::Exit(1)
+  }
 }
 

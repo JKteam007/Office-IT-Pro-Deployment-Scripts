@@ -1,7 +1,7 @@
 ﻿[String]$global:saveLastConfigFile = $NULL
 [String]$global:saveLastFilePath = $NULL
 
-$validProductIds = @("O365ProPlusRetail","O365BusinessRetail","VisioProRetail","ProjectProRetail", "SPDRetail", "VisioProXVolume", "VisioStdXVolume", "ProjectProXVolume", "ProjectStdXVolume", "InfoPathRetail")
+$validProductIds = @("O365ProPlusRetail","O365BusinessRetail","VisioProRetail","ProjectProRetail", "SPDRetail", "VisioProXVolume", "VisioStdXVolume", "ProjectProXVolume", "ProjectStdXVolume", "InfoPathRetail", "SkypeforBusinessEntryRetail", "LyncEntryRetail")
 
 try {
 $enum = "
@@ -23,7 +23,8 @@ namespace Microsoft.Office
          ProjectProXVolume = 128,
          ProjectStdXVolume = 256,
          InfoPathRetail = 512,
-         LanguagePack = 1024
+         SkypeforBusinessEntryRetail = 1024,
+         LyncEntryRetail = 2048,
      }
 }
 "
@@ -141,6 +142,19 @@ $validExcludeAppIds = @(
 "Visio",
 "Word")
 
+function Get-CurrentLineNumber {
+    $MyInvocation.ScriptLineNumber
+}
+
+
+function Get-CurrentFileName{
+    $MyInvocation.ScriptName.Substring($MyInvocation.ScriptName.LastIndexOf("\")+1)
+}
+
+function Get-CurrentFunctionName {
+    (Get-Variable MyInvocation -Scope 1).Value.MyCommand.Name;
+}
+
 Function New-ODTConfiguration{
 <#
 .SYNOPSIS
@@ -207,6 +221,9 @@ Here is what the configuration file looks like when created from this function:
     Param(
 
     [Parameter()]
+    [string] $OfficeClientEdition = $NULL,
+
+    [Parameter()]
     [string] $Bitness = $NULL,
 
     [Parameter(HelpMessage="Example: O365ProPlusRetail")]
@@ -225,13 +242,21 @@ Here is what the configuration file looks like when created from this function:
     }
 
     Process{
+        
 
         if ($ProductId -eq "Unknown") {
             $ProductId = SelectProductId
         }
 
-        if (!$Bitness) {
-            $Bitness = SelectBitness
+        if(!$OfficeClientEdition)
+        {
+            if (!$Bitness) {
+                $Bitness = SelectBitness
+            }
+        }
+        else
+        {
+            $Bitness = $OfficeClientEdition
         }
 
         $ProductId = IsValidProductId -ProductId $ProductId
@@ -291,6 +316,7 @@ Here is what the configuration file looks like when created from this function:
 Function Undo-ODTLastChange {
 
     Process{
+        
         if ($global:saveLastConfigFile -and $global:saveLastFilePath) {
             [System.XML.XMLDocument]$ConfigFile = New-Object System.XML.XMLDocument
 
@@ -304,6 +330,7 @@ Function Undo-ODTLastChange {
             Write-Host
             Write-Host "The Office XML Configuration file has been saved to: $global:saveLastFilePath"
         }
+        
     }
 }
 
@@ -397,6 +424,7 @@ Here is what the portion of configuration file looks like when modified by this 
     )
 
     Process{
+        
         $TargetFilePath = GetFilePath -TargetFilePath $TargetFilePath
 
         if ($ProductId -eq "Unknown") {
@@ -496,6 +524,7 @@ Here is what the portion of configuration file looks like when modified by this 
             Add-Member -InputObject $Result -MemberType NoteProperty -Name "LanguageIds" -Value $LanguageIds
             $Result
         }
+        
     }
 
 }
@@ -570,6 +599,7 @@ Here is what the portion of configuration file looks like when modified by this 
     )
 
     Process{
+        
         $TargetFilePath = GetFilePath -TargetFilePath $TargetFilePath
 
         if ($ProductId -eq "Unknown") {
@@ -683,7 +713,7 @@ Here is what the portion of configuration file looks like when modified by this 
             $Result
         }
 
-
+        
     }
 
 }
@@ -729,6 +759,7 @@ Language and Exclude values
     )
 
     Process{
+        
         $TargetFilePath = GetFilePath -TargetFilePath $TargetFilePath
 
         #Load the file
@@ -784,7 +815,7 @@ Language and Exclude values
                 $Result
             }
         }
-
+        
     }
 
 }
@@ -824,6 +855,7 @@ Removes the ProductToAdd with the ProductId 'O365ProPlusRetail' from the XML Con
     )
 
     Process{
+        
         $TargetFilePath = GetFilePath -TargetFilePath $TargetFilePath
 
         if ($ProductId -eq "Unknown") {
@@ -892,9 +924,57 @@ Removes the ProductToAdd with the ProductId 'O365ProPlusRetail' from the XML Con
             Add-Member -InputObject $Result -MemberType NoteProperty -Name "TargetFilePath" -Value $TargetFilePath
             $Result
         }
+        
     }
 
 }
+
+Function Get-LanguagesFromXML{
+<#
+.SYNOPSIS
+retreives languages from the configuration file
+
+
+.PARAMETER TargetFilePath
+Full file path for the file to be modified and be output to.
+
+
+#>
+Param(
+        [Parameter(ValueFromPipeline=$true,ValueFromPipelineByPropertyName=$true, Position=0)]
+        [string] $ConfigurationXML = $NULL,
+                
+        [Parameter(ValueFromPipelineByPropertyName=$true)]
+        [string] $ProductId = "Unknown",
+                                
+        [Parameter(ValueFromPipelineByPropertyName=$true)]
+        [string] $TargetFilePath,
+                                                
+        [Parameter(ParameterSetName="All", ValueFromPipelineByPropertyName=$true)]
+        [switch] $All
+     )
+
+    Process{
+    
+    [System.XML.XMLDocument]$ConfigFile = New-Object System.XML.XMLDocument
+    $ConfigFile.Load($TargetFilePath) | Out-Null    
+    $productsWithLangs = $ConfigFile.SelectNodes("/Configuration/Add/Product")
+    $LangsToReturn = @()
+    foreach($prodWithLang in $productsWithLangs){
+        foreach($lang in $prodWithLang.Language){
+            if(!($LangsToReturn -contains $lang.ID)){
+                $LangsToReturn += $lang.ID
+            }     
+       }
+    }
+    
+    
+    return $LangsToReturn
+    
+    }
+}
+
+
 
 Function Remove-ODTExcludeApp{
 <#
@@ -932,6 +1012,7 @@ Removes the ExcludeApp with the Id 'Lync' (which is Skype for Business) from the
     )
 
     Process{
+        
         $TargetFilePath = GetFilePath -TargetFilePath $TargetFilePath
 
         if ($ExcludeAppId -eq "Unknown") {
@@ -986,6 +1067,7 @@ Removes the ExcludeApp with the Id 'Lync' (which is Skype for Business) from the
             Add-Member -InputObject $Result -MemberType NoteProperty -Name "TargetFilePath" -Value $TargetFilePath
             $Result
         }
+        
     }
 
 }
@@ -1060,6 +1142,7 @@ Here is what the portion of configuration file looks like when modified by this 
     )
 
     Process{
+        
         $TargetFilePath = GetFilePath -TargetFilePath $TargetFilePath
 
         if ($ProductId -eq "Unknown") {
@@ -1137,6 +1220,7 @@ Here is what the portion of configuration file looks like when modified by this 
             Add-Member -InputObject $Result -MemberType NoteProperty -Name "LanguageIds" -Value $LanguageIds
             $Result
         }
+        
     }
 
 }
@@ -1186,6 +1270,7 @@ Language and Exclude values
     }
 
     Process{
+        
         $TargetFilePath = GetFilePath -TargetFilePath $TargetFilePath
       
         #Load the file
@@ -1238,6 +1323,7 @@ Language and Exclude values
         }
         
         $results
+        
     }
 
 }
@@ -1274,6 +1360,7 @@ Removes the ProductToRemove with the ProductId 'O365ProPlusRetail' from the XML 
     )
 
     Process{
+        
         $TargetFilePath = GetFilePath -TargetFilePath $TargetFilePath
 
         if ($ProductId -eq "Unknown") {
@@ -1335,6 +1422,7 @@ Removes the ProductToRemove with the ProductId 'O365ProPlusRetail' from the XML 
             Add-Member -InputObject $Result -MemberType NoteProperty -Name "TargetFilePath" -Value $TargetFilePath
             $Result
         }
+        
     }
 
 }
@@ -1429,6 +1517,7 @@ Here is what the portion of configuration file looks like when modified by this 
     )
 
     Process{
+        
         $TargetFilePath = GetFilePath -TargetFilePath $TargetFilePath
 
         #Load the file
@@ -1528,6 +1617,7 @@ Here is what the portion of configuration file looks like when modified by this 
             Add-Member -InputObject $Result -MemberType NoteProperty -Name "Deadline" -Value $Deadline
             $Result
         }
+        
     }
 }
 
@@ -1557,6 +1647,7 @@ file.
     )
 
     Process{
+        
         $TargetFilePath = GetFilePath -TargetFilePath $TargetFilePath
      
         #Load the file
@@ -1579,6 +1670,7 @@ file.
         }
         
         $ConfigFile.Configuration.GetElementsByTagName("Updates");
+        
     }
 
 }
@@ -1614,6 +1706,7 @@ This is the section that would be removed when running this function
     )
 
     Process{
+        
         $TargetFilePath = GetFilePath -TargetFilePath $TargetFilePath
 
         #Load the file
@@ -1660,6 +1753,7 @@ This is the section that would be removed when running this function
             Add-Member -InputObject $Result -MemberType NoteProperty -Name "TargetFilePath" -Value $TargetFilePath
             $Result
         }
+        
     }
 }
 
@@ -1748,6 +1842,7 @@ Here is what the portion of configuration file looks like when modified by this 
     )
 
     Process{
+        
         $TargetFilePath = GetFilePath -TargetFilePath $TargetFilePath
 
         #Load file
@@ -1883,6 +1978,7 @@ Here is what the portion of configuration file looks like when modified by this 
             Add-Member -InputObject $Result -MemberType NoteProperty -Name "AutoActivate" -Value $AutoActivate
             $Result
         }
+        
     }
 }
 
@@ -1911,6 +2007,7 @@ file.
     )
 
     Process{
+        
         $TargetFilePath = GetFilePath -TargetFilePath $TargetFilePath
 
         #Load the file
@@ -1933,6 +2030,7 @@ file.
         }
         
         $ConfigFile.Configuration.GetElementsByTagName("Property")
+        
     }
 
 }
@@ -1981,6 +2079,7 @@ Here is what the portion of configuration file that would be removed by this fun
     )
 
     Process{
+        
         $TargetFilePath = GetFilePath -TargetFilePath $TargetFilePath
 
         #Load file
@@ -2030,6 +2129,7 @@ Here is what the portion of configuration file that would be removed by this fun
             Add-Member -InputObject $Result -MemberType NoteProperty -Name "TargetFilePath" -Value $TargetFilePath
             $Result
         }
+        
     }
 }
 
@@ -2102,7 +2202,13 @@ Here is what the portion of configuration file looks like when modified by this 
         [string] $SourcePath = $NULL,
 
         [Parameter(ValueFromPipelineByPropertyName=$true)]
+        [string] $DownloadPath = $NULL,
+
+        [Parameter(ValueFromPipelineByPropertyName=$true)]
         [string] $Version,
+
+        [Parameter(ValueFromPipelineByPropertyName=$true)]
+        [string] $OfficeClientEdition,
 
         [Parameter(ValueFromPipelineByPropertyName=$true)]
         [string] $Bitness,
@@ -2114,7 +2220,7 @@ Here is what the portion of configuration file looks like when modified by this 
         [Microsoft.Office.Branches] $Branch,
 
         [Parameter(ValueFromPipelineByPropertyName=$true)]
-        [Microsoft.Office.Channel] $Channel = "Current",
+        [Microsoft.Office.Channel] $Channel,
 
         [Parameter(ValueFromPipelineByPropertyName=$true)]
         [System.Nullable[bool]] $OfficeMgmtCOM = $NULL
@@ -2122,6 +2228,15 @@ Here is what the portion of configuration file looks like when modified by this 
     )
 
     Process{
+        
+        if(!$OfficeClientEdition)
+        {
+            #checking if office client edition is null, if not, set bitness to client office edition
+        }
+        else
+        {
+            $Bitness = $OfficeClientEdition
+        }        
         $TargetFilePath = GetFilePath -TargetFilePath $TargetFilePath
 
         #Load file
@@ -2179,6 +2294,14 @@ Here is what the portion of configuration file looks like when modified by this 
             }
         }
 
+        if($DownloadPath){
+            $ConfigFile.Configuration.Add.SetAttribute("DownloadPath", $DownloadPath) | Out-Null
+        } else {
+            if ($PSBoundParameters.ContainsKey('DownloadPath')) {
+                $ConfigFile.Configuration.Add.RemoveAttribute("DownloadPath")
+            }
+        }
+
         if($Version){
             $ConfigFile.Configuration.Add.SetAttribute("Version", $Version) | Out-Null
         } else {
@@ -2193,8 +2316,7 @@ Here is what the portion of configuration file looks like when modified by this 
             if ($PSBoundParameters.ContainsKey('OfficeClientEdition')) {
                 $ConfigFile.Configuration.Add.RemoveAttribute("OfficeClientEdition")
             }
-        }
-
+        }        
         if ($OfficeMgmtCOM -ne $NULL) {
            if ($OfficeMgmtCOM) {
              $ConfigFile.Configuration.Add.SetAttribute("OfficeMgmtCOM", "True") | Out-Null
@@ -2223,13 +2345,14 @@ Here is what the portion of configuration file looks like when modified by this 
             $Result = New-Object –TypeName PSObject 
             Add-Member -InputObject $Result -MemberType NoteProperty -Name "TargetFilePath" -Value $TargetFilePath
             Add-Member -InputObject $Result -MemberType NoteProperty -Name "SourcePath" -Value $SourcePath
+            Add-Member -InputObject $Result -MemberType NoteProperty -Name "DownloadPath" -Value $DownloadPath
             Add-Member -InputObject $Result -MemberType NoteProperty -Name "Version" -Value $Version
             Add-Member -InputObject $Result -MemberType NoteProperty -Name "Bitness" -Value $Bitness
             Add-Member -InputObject $Result -MemberType NoteProperty -Name "OfficeMgmtCOM" -Value $OfficeMgmtCOM
             $Result
         }
-    }
-
+        
+    }    
 }
 
 Function Get-ODTAdd{
@@ -2257,6 +2380,7 @@ file.
     )
 
     Process{
+        
         $TargetFilePath = GetFilePath -TargetFilePath $TargetFilePath
 
         #Load the file
@@ -2279,7 +2403,8 @@ file.
             throw $NoConfigurationElement
         }
         
-        $ConfigFile.Configuration.GetElementsByTagName("Add") | Select OfficeClientEdition, SourcePath, Version, Channel, Branch, OfficeMgmtCOM
+        $ConfigFile.Configuration.GetElementsByTagName("Add") | Select OfficeClientEdition, SourcePath, DownloadPath, Version, Channel, Branch, OfficeMgmtCOM
+        
     }
 
 }
@@ -2310,6 +2435,7 @@ Removes the Add node from the xml congfiguration file
     )
 
     Process{
+        
         $TargetFilePath = GetFilePath -TargetFilePath $TargetFilePath
 
         #Load file
@@ -2356,6 +2482,7 @@ Removes the Add node from the xml congfiguration file
             Add-Member -InputObject $Result -MemberType NoteProperty -Name "TargetFilePath" -Value $TargetFilePath
             $Result
         }
+        
     }
 
 }
@@ -2411,6 +2538,7 @@ Here is what the portion of configuration file looks like when modified by this 
     )
 
     Process{
+        
         $TargetFilePath = GetFilePath -TargetFilePath $TargetFilePath
 
         #Load file
@@ -2478,6 +2606,7 @@ Here is what the portion of configuration file looks like when modified by this 
             Add-Member -InputObject $Result -MemberType NoteProperty -Name "Level" -Value $Level
             $Result
         }
+        
     }
 }
 
@@ -2505,6 +2634,7 @@ file.
     )
 
     Process{
+        
         $TargetFilePath = GetFilePath -TargetFilePath $TargetFilePath
 
         #Load the file
@@ -2528,6 +2658,7 @@ file.
         }
         
         $ConfigFile.Configuration.GetElementsByTagName("Logging") | Select Level, Path
+        
     }
 
 }
@@ -2565,6 +2696,7 @@ Here is what the portion of configuration file that will be removed by this func
     )
 
     Process{
+        
         $TargetFilePath = GetFilePath -TargetFilePath $TargetFilePath
 
         #Load file
@@ -2612,6 +2744,7 @@ Here is what the portion of configuration file that will be removed by this func
             Add-Member -InputObject $Result -MemberType NoteProperty -Name "TargetFilePath" -Value $TargetFilePath
             $Result
         }
+        
     }
 }
 
@@ -2672,6 +2805,7 @@ Here is what the portion of configuration file looks like when modified by this 
     )
 
     Process{
+        
         $TargetFilePath = GetFilePath -TargetFilePath $TargetFilePath
 
         #Load file
@@ -2739,6 +2873,7 @@ Here is what the portion of configuration file looks like when modified by this 
             Add-Member -InputObject $Result -MemberType NoteProperty -Name "AcceptEULA" -Value $AcceptEULA
             $Result
         }
+        
     }
 
 }
@@ -2768,6 +2903,7 @@ file.
     )
 
     Process{
+        
         $TargetFilePath = GetFilePath -TargetFilePath $TargetFilePath
 
         #Load the file
@@ -2791,6 +2927,7 @@ file.
         }
         
         $ConfigFile.Configuration.GetElementsByTagName("Display") | Select Level, AcceptEULA
+        
     }
 
 }
@@ -2828,6 +2965,7 @@ Here is what the removed portion of configuration file looks like:
     )
 
     Process{
+        
         $TargetFilePath = GetFilePath -TargetFilePath $TargetFilePath
 
         #Load file
@@ -2875,6 +3013,7 @@ Here is what the removed portion of configuration file looks like:
             Add-Member -InputObject $Result -MemberType NoteProperty -Name "TargetFilePath" -Value $TargetFilePath
             $Result
         }
+        
     }
 
 }
@@ -2911,6 +3050,7 @@ Function LanguagePrompt() {
            [string] $DefaultLanguage
         )
         
+        
   do {
    Write-Host
    Write-Host "Enter Language (Current: $DefaultLanguage):" -NoNewline
@@ -2927,9 +3067,11 @@ Function LanguagePrompt() {
       return $DefaultLanguage
     }
   } while($true);
+  
 }
 
 Function SelectLanguage() {
+
   do {
    Write-Host
    Write-Host "Available Language identifiers"
@@ -2968,9 +3110,11 @@ Function SelectLanguage() {
    }
 
   } while($true);
+  
 }
 
 Function SelectProductId() {
+
   do {
    Write-Host
    Write-Host "Office Deployment Tool for Click-to-Run Product Ids"
@@ -3004,9 +3148,11 @@ Function SelectProductId() {
    }
 
   } while($true);
+  
 }
 
 Function SelectBitness() {
+
   do {
    Write-Host
    Write-Host "Office Bitness"
@@ -3044,9 +3190,11 @@ Function SelectBitness() {
    }
 
   } while($true);
+  
 }
 
 Function SelectExcludeAppId() {
+
   do {
    Write-Host
    Write-Host "Office Deployment Tool for Click-to-Run ExcludeApp Ids"
@@ -3080,6 +3228,7 @@ Function SelectExcludeAppId() {
    }
 
   } while($true);
+  
 }
 
 Function Format-XML ([xml]$xml, $indent=2) { 
@@ -3101,7 +3250,7 @@ Function IsSupportedLanguage() {
            [Parameter()]
            [bool] $ShowLanguages = $true
         )
-
+        
         $lang = $validLanguages | where {$_.ToString().ToUpper().EndsWith("|$Language".ToUpper())}
           
         if (!($lang)) {
@@ -3116,7 +3265,7 @@ Function IsSupportedLanguage() {
            }
            
         }
-
+        
         return $Language
 }
 
@@ -3125,13 +3274,13 @@ Function IsValidProductId() {
            [Parameter(Mandatory=$true, ValueFromPipelineByPropertyName=$true)]
            [string] $ProductId
         )
-
+        
         $prod = $validProductIds | where {$_.ToString().ToUpper().Equals("$ProductId".ToUpper())}
           
         if (!($prod)) {
             throw "Invalid or Unsupported ProductId: $ProductId"
         }
-
+        
         return $ProductId
 }
 
@@ -3140,13 +3289,14 @@ Function IsValidExcludeAppId() {
            [Parameter(Mandatory=$true, ValueFromPipelineByPropertyName=$true)]
            [string] $ExcludeAppId
         )
-
+        
         $exclude = $validExcludeAppIds | where {$_.ToString().ToUpper().Equals("$ExcludeAppId".ToUpper())}
           
         if (!($exclude)) {
             throw "Invalid or Unsupported ExcludeAppId: $ExcludeAppId"
         }
 
+        
         return $ExcludeAppId
 }
 
@@ -3200,6 +3350,7 @@ function Change-UpdatePathToChannel {
      [String] $Channel
    )
 
+   
    $newUpdatePath = $UpdatePath
 
    $branchShortName = "DC"
@@ -3261,9 +3412,9 @@ function Change-UpdatePathToChannel {
      $pathAlive = $false
    }
    
-   if ($pathAlive) {
+   if ($pathAlive) {    
      return $newUpdatePath
-   } else {
+   } else {    
      return $UpdatePath
    }
 }
@@ -3281,8 +3432,21 @@ Function Test-UpdateSource() {
         [string[]] $OfficeLanguages = $null,
 
         [Parameter()]
+        [String] $OfficeClientEdition = $NULL,
+        
+        [Parameter()]
         [String] $Bitness = $NULL
     )
+
+    
+    if(!$OfficeClientEdition)
+        {
+            #checking if office client edition is null, if not, set bitness to client office edition
+        }
+        else
+        {
+            $Bitness = $OfficeClientEdition
+        }
 
   	$uri = [System.Uri]$UpdateSource
 
@@ -3305,6 +3469,7 @@ Function Test-UpdateSource() {
        }
     }
 
+    
     return $sourceIsAlive
 }
 
@@ -3315,11 +3480,26 @@ Function Validate-UpdateSource() {
         [string] $UpdateSource = $NULL,
 
         [Parameter()]
+        [string] $OfficeClientEdition,
+        
+        [Parameter()]
         [string] $Bitness = "x86",
 
         [Parameter()]
-        [string[]] $OfficeLanguages = $null
+        [string[]] $OfficeLanguages = $null,
+
+        [Parameter()]
+        [bool]$ShowMissingFiles = $true
     )
+    
+    if(!$OfficeClientEdition)
+        {
+            #checking if office client edition is null, if not, set bitness to client office edition
+        }
+        else
+        {
+            $Bitness = $OfficeClientEdition
+        }
 
     [bool]$validUpdateSource = $true
     [string]$cabPath = ""
@@ -3387,7 +3567,9 @@ Function Validate-UpdateSource() {
               $fileExists = $missingFiles.Contains($fullPath)
               if (!($fileExists)) {
                  $missingFiles.Add($fullPath)
-                 Write-Host "Source File Missing: $fullPath"
+                 if($ShowMissingFiles){
+                    Write-Host "Source File Missing: $fullPath"
+                 }
                  Write-Log -Message "Source File Missing: $fullPath" -severity 1 -component "Office 365 Update Anywhere" 
               }     
               $validUpdateSource = $false
@@ -3414,6 +3596,7 @@ function Get-ChannelXml() {
 	)
 
    process {
+        
        $cabPath = "$PSScriptRoot\ofl.cab"
        [bool]$downloadFile = $true
 
@@ -3452,7 +3635,34 @@ function Get-ChannelXml() {
        
        [xml]$channelXml = Get-Content $tmpName
 
+       
        return $channelXml
    }
 
+}
+
+Function WriteToLogFile() {
+    param( 
+      [Parameter(Mandatory=$true)]
+      [string]$LNumber,
+      [Parameter(Mandatory=$true)]
+      [string]$FName,
+      [Parameter(Mandatory=$true)]
+      [string]$ActionError
+   )
+   try{
+   $headerString = "Time".PadRight(30, ' ') + "Line Number".PadRight(15,' ') + "FileName".PadRight(60,' ') + "Action"
+   $stringToWrite = $(Get-Date -Format G).PadRight(30, ' ') + $($LNumber).PadRight(15, ' ') + $($FName).PadRight(60,' ') + $ActionError
+   #check if file exists, create if it doesn't
+   if(Test-Path C:\Windows\Temp\OfficeAutoScriptLog.txt){#if exists, append
+   
+        Add-Content C:\Windows\Temp\OfficeAutoScriptLog.txt $stringToWrite
+   }
+   else{#if not exists, create new
+        Add-Content C:\Windows\Temp\OfficeAutoScriptLog.txt $headerString
+        Add-Content C:\Windows\Temp\OfficeAutoScriptLog.txt $stringToWrite
+   }
+   } catch [Exception]{
+   Write-Host $_
+   }
 }

@@ -287,8 +287,8 @@ Function WriteToLogFile() {
       [string]$ActionError
    )
    try{
-   $headerString = "Time".PadRight(130, ' ') + "Line Number".PadRight(15,' ') + "FileName".PadRight(100,' ') + "Action"
-   $stringToWrite = $(Get-Date -Format o).PadRight(130, ' ') + $($LNumber).PadRight(15, ' ') + $($FName).PadRight(100,' ') + $ActionError
+   $headerString = "Time".PadRight(30, ' ') + "Line Number".PadRight(15,' ') + "FileName".PadRight(60,' ') + "Action"
+$stringToWrite = $(Get-Date -Format G).PadRight(30, ' ') + $($LNumber).PadRight(15, ' ') + $($FName).PadRight(60,' ') + $ActionError
    #check if file exists, create if it doesn't
    if(Test-Path C:\Windows\Temp\OfficeAutoScriptLog.txt){#if exists, append
    

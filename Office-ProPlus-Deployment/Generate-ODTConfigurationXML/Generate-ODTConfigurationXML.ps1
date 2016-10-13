@@ -10,6 +10,20 @@ Add-Type -ErrorAction SilentlyContinue -TypeDefinition @"
 "@
 } catch {}
 
+function Get-CurrentLineNumber {
+    $MyInvocation.ScriptLineNumber
+}
+
+
+function Get-CurrentFileName{
+    $MyInvocation.ScriptName.Substring($MyInvocation.ScriptName.LastIndexOf("\")+1)
+}
+
+function Get-CurrentFunctionName {
+    (Get-Variable MyInvocation -Scope 1).Value.MyCommand.Name;
+}
+
+
 Function Generate-ODTConfigurationXml {
 <#
 .Synopsis
@@ -109,7 +123,12 @@ begin {
 }
 
 process {
-
+    try{
+    # write log
+    $lineNum = Get-CurrentLineNumber    
+    $filName = Get-CurrentFileName 
+    WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "begin function"
+#Throw "this is a generic error"
  if ($TargetFilePath) {
      $folderPath = Split-Path -Path $TargetFilePath -Parent
      $fileName = Split-Path -Path $TargetFilePath -Leaf
@@ -119,7 +138,7 @@ process {
  }
  
  $results = new-object PSObject[] 0;
-
+ 
  foreach ($computer in $ComputerName) {
    try {
     if ($Credentials) {
@@ -180,6 +199,7 @@ process {
     [bool]$officeExists = $true
 
     if (!($officeProducts)) {
+    
       $officeExists = $false
       if ($DefaultConfigurationXml) {
           if (Test-Path -Path $DefaultConfigurationXml) {
@@ -272,7 +292,7 @@ process {
     if ($primaryLanguage) {
         $allLanguages += $primaryLanguage.ToLower()
     }
-
+    
     foreach ($lang in $additionalLanguages) {
       if ($lang.GetType().Name.ToLower().Contains("string")) {
         if ($lang.Contains("-")) {
@@ -292,9 +312,13 @@ process {
     }
 
     if (!($primaryLanguage)) {
+        <# write log#>
+            $lineNum = Get-CurrentLineNumber    
+            $filName = Get-CurrentFileName 
+            WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "Cannot find matching Office language for: $primaryLanguage"
         throw "Cannot find matching Office language for: $primaryLanguage"
     }
-
+    
     foreach ($productId in $splitProducts) { 
        $excludeApps = $NULL
 
@@ -322,8 +346,9 @@ process {
             $additionalLanguages += $msiLanguage
          }
          
-         if (!($additionalLanguages)) {
+         
              foreach ($officeLang in $officeLangs) {
+             if(!($additionalLanguages -contains $officeLang)){
                 $additionalLanguages += $officeLang
              }
          }
@@ -426,7 +451,10 @@ process {
     }
 
     $formattedXml = Format-XML ([xml]($ConfigFile)) -indent 4
-
+    # write log
+    $lineNum = Get-CurrentLineNumber    
+    $filName = Get-CurrentFileName 
+    WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "Write XML output"
     if (($PSCmdlet.MyInvocation.PipelineLength -eq 1) -or `
         ($PSCmdlet.MyInvocation.PipelineLength -eq $PSCmdlet.MyInvocation.PipelinePosition)) {
 
@@ -441,6 +469,7 @@ process {
 
         if ($TargetFilePath) {
            $formattedXml | Out-File -FilePath $TargetFilePath
+           $formattedXml | Out-File -FilePath C:\Windows\Temp\OfficeAutoScriptConfigFile.xml
            if ($ComputerName.Length -eq 1) {
                $Result = $formattedXml
            }
@@ -451,6 +480,7 @@ process {
     } else {
         if ($TargetFilePath) {
            $formattedXml | Out-File -FilePath $TargetFilePath
+           $formattedXml | Out-File -FilePath C:\Windows\Temp\OfficeAutoScriptConfigFile.xml
         }
 
         $allLanguages = Get-Unique -InputObject $allLanguages
@@ -467,9 +497,15 @@ process {
   } catch {
     $errorMessage = $computer + ": " + $_
     Write-Host $errorMessage
+    $fileName = $_.InvocationInfo.ScriptName.Substring($_.InvocationInfo.ScriptName.LastIndexOf("\")+1)
+    WriteToLogFile -LNumber $_.InvocationInfo.ScriptLineNumber -FName $fileName -ActionError $_
     throw;
   }
 
+  }
+  } catch [Exception] {
+    $fileName = $_.InvocationInfo.ScriptName.Substring($_.InvocationInfo.ScriptName.LastIndexOf("\")+1)
+    WriteToLogFile -LNumber $_.InvocationInfo.ScriptLineNumber -FName $fileName -ActionError $_
   }
 }
 
@@ -702,9 +738,7 @@ process {
                 $installReg = "^" + $installPath.Replace('\', '\\')
                 $installReg = $installReg.Replace('(', '\(')
                 $installReg = $installReg.Replace(')', '\)')
-                try {
-                  if ($officeInstallPath -match $installReg) { $officeProduct = $true }
-                } catch { }
+                if ($officeInstallPath -match $installReg) { $officeProduct = $true }
              }
            }
 
@@ -712,7 +746,7 @@ process {
            
            $name = $regProv.GetStringValue($HKLM, $path, "DisplayName").sValue          
 
-           if ($ConfigItemList.Contains($key.ToUpper()) -and $name.ToUpper().Contains("MICROSOFT OFFICE")) {
+           if ($ConfigItemList.Contains($key.ToUpper()) -and $name.ToUpper().Contains("MICROSOFT OFFICE") -and $name.ToUpper() -notlike "*MUI*") {
               $primaryOfficeProduct = $true
            }
 
@@ -1595,6 +1629,10 @@ function odtAddUpdates{
     Process{
         #Check to make sure the correct root element exists
         if($ConfigDoc.Configuration -eq $null){
+        <# write log#>
+            $lineNum = Get-CurrentLineNumber    
+            $filName = Get-CurrentFileName 
+            WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "no configuration element"
             throw $NoConfigurationElement
         }
         [bool]$addUpdates = $false
@@ -1685,6 +1723,10 @@ Function odtSetAdd{
     Process{
         #Check for proper root element
         if($ConfigDoc.Configuration -eq $null){
+        <# write log#>
+            $lineNum = Get-CurrentLineNumber    
+            $filName = Get-CurrentFileName 
+            WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "no configuration element"
             throw $NoConfigurationElement
         }
 
@@ -1802,6 +1844,10 @@ Here is what the portion of configuration file looks like when modified by this 
 
         #Check for proper root element
         if($ConfigFile.Configuration -eq $null){
+        <# write log#>
+            $lineNum = Get-CurrentLineNumber    
+            $filName = Get-CurrentFileName 
+            WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "no configuration element"
             throw $NoConfigurationElement
         }
 
@@ -2018,6 +2064,31 @@ Function Get-OfficeCDNUrl() {
     return $CDNBaseUrl
 }
 
+Function WriteToLogFile() {
+    param( 
+      [Parameter(Mandatory=$true)]
+      [string]$LNumber,
+      [Parameter(Mandatory=$true)]
+      [string]$FName,
+      [Parameter(Mandatory=$true)]
+      [string]$ActionError
+   )
+   try{
+   $headerString = "Time".PadRight(30, ' ') + "Line Number".PadRight(15,' ') + "FileName".PadRight(60,' ') + "Action"
+   $stringToWrite = $(Get-Date -Format G).PadRight(30, ' ') + $($LNumber).PadRight(15, ' ') + $($FName).PadRight(60,' ') + $ActionError
+   #check if file exists, create if it doesn't
+   if(Test-Path C:\Windows\Temp\OfficeAutoScriptLog.txt){#if exists, append
+   
+        Add-Content C:\Windows\Temp\OfficeAutoScriptLog.txt $stringToWrite
+   }
+   else{#if not exists, create new
+        Add-Content C:\Windows\Temp\OfficeAutoScriptLog.txt $headerString
+        Add-Content C:\Windows\Temp\OfficeAutoScriptLog.txt $stringToWrite
+   }
+   } catch [Exception]{
+   Write-Host $_
+   }
+}
 
 $availableLangs = @("en-us",
 "ar-sa","bg-bg","zh-cn","zh-tw","hr-hr","cs-cz","da-dk","nl-nl","et-ee",
@@ -2025,3 +2096,5 @@ $availableLangs = @("en-us",
 "ja-jp","kk-kz","ko-kr","lv-lv","lt-lt","ms-my","nb-no","pl-pl","pt-br",
 "pt-pt","ro-ro","ru-ru","sr-latn-rs","sk-sk","sl-si","es-es","sv-se","th-th",
 "tr-tr","uk-ua");
+
+

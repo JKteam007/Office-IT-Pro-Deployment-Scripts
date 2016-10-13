@@ -50,6 +50,10 @@ if ($Undo)
     if ((Test-Path "$BackupPath\OfficeSettingsMigrateBackup_orgIdUserRoaming.reg") -eq $false)
     {
         Write-Host "No backup files exist"
+        <# write log#>
+        $lineNum = Get-CurrentLineNumber    
+        $filName = Get-CurrentFileName 
+        WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "No backup files exist"
         return
     }
 
@@ -60,6 +64,10 @@ if ($Undo)
     foreach ($backupFile in Get-ChildItem "$BackupPath\OfficeSettingsMigrateBackup_*")
     {
         Write-Host "Restoring from $backupFile"
+        <# write log#>
+        $lineNum = Get-CurrentLineNumber    
+        $filName = Get-CurrentFileName 
+        WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "Restoring from $backupFile"
         reg.exe import $backupFile
     }
 
@@ -91,24 +99,40 @@ $roamingOrgIdUserIds = Get-ChildItem "$basePath\Common\Roaming\Identities\*_OrgI
 if ($mruAdUserIds.Count -ne 1)
 { 
     Write-Host "A single AD identity is required. Not performing migration."
+    <# write log#>
+    $lineNum = Get-CurrentLineNumber    
+    $filName = Get-CurrentFileName 
+    WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "A single AD identity is required. Not performing migration."
     return 
 }
 
 if ($mruOrgIdUserIds.Count -ne 1)
 { 
     Write-Host "A single OrgId identity is required. Not performing migration."
+    <# write log#>
+    $lineNum = Get-CurrentLineNumber    
+    $filName = Get-CurrentFileName 
+    WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "A single OrgId identity is required. Not performing migration."
     return 
 }
 
 if ($roamingADUserIds.Count -ne 1)
 { 
     Write-Host "A single AD identity is required. Not performing migration."
+    <# write log#>
+    $lineNum = Get-CurrentLineNumber    
+    $filName = Get-CurrentFileName 
+    WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "A single AD identity is required. Not performing migration."
     return 
 }
 
 if ($roamingOrgIdUserIds.Count -ne 1)
 { 
     Write-Host "A single OrgId identity is required. Not performing migration."
+    <# write log#>
+    $lineNum = Get-CurrentLineNumber    
+    $filName = Get-CurrentFileName 
+    WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "A single OrgId identity is required. Not performing migration."
     return 
 }
 
@@ -125,12 +149,20 @@ foreach($item in Get-ChildItem "$basePath\*\User MRU\OrgId_*" -ErrorAction Silen
     $orgIdUserMruPathForReg = $basePathForReg + $appName + "\User MRU\" + $mruOrgIdUserIds
 
     Write-Host "Backing up MRU from $orgIdUserMruPathForReg"
+    <# write log#>
+    $lineNum = Get-CurrentLineNumber    
+    $filName = Get-CurrentFileName 
+    WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "Backing up MRU from $orgIdUserMruPathForReg"
 
     reg.exe export $orgIdUserMruPathForReg "$BackupPath\OfficeSettingsMigrateBackup_orgIdUserMru_$appName.reg"
 
     if ((Test-Path "$BackupPath\OfficeSettingsMigrateBackup_orgIdUserMru_$appName.reg") -eq $false)
     {
         Write-Host "Did not successfully write backup file. Not proceeding with migration."
+        <# write log#>
+        $lineNum = Get-CurrentLineNumber    
+        $filName = Get-CurrentFileName 
+        WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "Did not successfully write backup file. Not proceeding with migration."
         return
     }
 }
@@ -141,12 +173,20 @@ foreach($item in Get-ChildItem "$basePath\*\User MRU\OrgId_*" -ErrorAction Silen
 $orgIdUserRoamingPathForReg = $basePathForReg + "Common\Roaming\Identities\" + $roamingOrgIdUserIds
 
 Write-Host "Backing up MRU from $orgIdUserRoamingPathForReg"
+<# write log#>
+$lineNum = Get-CurrentLineNumber    
+$filName = Get-CurrentFileName 
+WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "Backing up MRU from $orgIdUserRoamingPathForReg"
 
 reg.exe export $orgIdUserRoamingPathForReg "$BackupPath\OfficeSettingsMigrateBackup_orgIdUserRoaming.reg"
 
 if ((Test-Path "$BackupPath\OfficeSettingsMigrateBackup_orgIdUserRoaming.reg") -eq $false)
 {
     Write-Host "Did not successfully write backup file. Not proceeding with migration."
+    <# write log#>
+    $lineNum = Get-CurrentLineNumber    
+    $filName = Get-CurrentFileName 
+    WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "Did not successfully write backup file. Not proceeding with migration."
     return
 }
 
@@ -164,6 +204,10 @@ foreach($item in Get-ChildItem "$basePath\*\User MRU\AD_*" -ErrorAction Silently
     $orgIdUserMruPath = $basePath + $appName + "\User MRU\" + $mruOrgIdUserIds
 
     Write-Host "Copying MRU from $adUserMruPath to $orgIdUserMruPath"
+    <# write log#>
+    $lineNum = Get-CurrentLineNumber    
+    $filName = Get-CurrentFileName 
+    WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "Copying MRU from $adUserMruPath to $orgIdUserMruPath"
 
     Remove-Item $orgIdUserMruPath -Recurse
     Copy-Item $adUserMruPath -Dest $orgIdUserMruPath -Recurse
@@ -176,6 +220,55 @@ $adUserRoamingPath = $basePath + "Common\Roaming\Identities\" + $roamingADUserId
 $orgIdUserRoamingPath = $basePath + "Common\Roaming\Identities\" + $roamingOrgIdUserIds
 
 Write-Host "Copying roaming settings from $adUserRoamingPath to $orgIdUserRoamingPath"
+<# write log#>
+$lineNum = Get-CurrentLineNumber    
+$filName = Get-CurrentFileName 
+WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "Copying roaming settings from $adUserRoamingPath to $orgIdUserRoamingPath"
 
 Remove-Item $orgIdUserRoamingPath -Recurse
 Copy-Item $adUserRoamingPath -Dest $orgIdUserRoamingPath -Recurse
+
+
+function Get-CurrentLineNumber {
+    $MyInvocation.ScriptLineNumber
+}
+
+
+function Get-CurrentFileName{
+    $MyInvocation.ScriptName.Substring($MyInvocation.ScriptName.LastIndexOf("\")+1)
+}
+
+function Get-CurrentFunctionName {
+    (Get-Variable MyInvocation -Scope 1).Value.MyCommand.Name;
+}
+
+
+
+
+
+
+Function WriteToLogFile() {
+    param( 
+      [Parameter(Mandatory=$true)]
+      [string]$LNumber,
+      [Parameter(Mandatory=$true)]
+      [string]$FName,
+      [Parameter(Mandatory=$true)]
+      [string]$ActionError
+   )
+   try{
+   $headerString = "Time".PadRight(30, ' ') + "Line Number".PadRight(15,' ') + "FileName".PadRight(60,' ') + "Action"
+   $stringToWrite = $(Get-Date -Format G).PadRight(30, ' ') + $($LNumber).PadRight(15, ' ') + $($FName).PadRight(60,' ') + $ActionError
+   #check if file exists, create if it doesn't
+   if(Test-Path C:\Windows\Temp\OfficeAutoScriptLog.txt){#if exists, append
+   
+        Add-Content C:\Windows\Temp\OfficeAutoScriptLog.txt $stringToWrite
+   }
+   else{#if not exists, create new
+        Add-Content C:\Windows\Temp\OfficeAutoScriptLog.txt $headerString
+        Add-Content C:\Windows\Temp\OfficeAutoScriptLog.txt $stringToWrite
+   }
+   } catch [Exception]{
+   Write-Host $_
+   }
+}

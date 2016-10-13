@@ -6,6 +6,52 @@ Add-Type -TypeDefinition @"
    }
 "@
 
+function Get-CurrentLineNumber {
+    $MyInvocation.ScriptLineNumber
+}
+
+
+function Get-CurrentFileName{
+    $MyInvocation.ScriptName.Substring($MyInvocation.ScriptName.LastIndexOf("\")+1)
+}
+
+function Get-CurrentFunctionName {
+    (Get-Variable MyInvocation -Scope 1).Value.MyCommand.Name;
+}
+
+
+
+
+
+
+Function WriteToLogFile() {
+    param( 
+      [Parameter(Mandatory=$true)]
+      [string]$LNumber,
+      [Parameter(Mandatory=$true)]
+      [string]$FName,
+      [Parameter(Mandatory=$true)]
+      [string]$ActionError
+   )
+   try{
+   $headerString = "Time".PadRight(30, ' ') + "Line Number".PadRight(15,' ') + "FileName".PadRight(60,' ') + "Action"
+   $stringToWrite = $(Get-Date -Format G).PadRight(30, ' ') + $($LNumber).PadRight(15, ' ') + $($FName).PadRight(60,' ') + $ActionError
+   #check if file exists, create if it doesn't
+   if(Test-Path C:\Windows\Temp\OfficeAutoScriptLog.txt){#if exists, append
+   
+        Add-Content C:\Windows\Temp\OfficeAutoScriptLog.txt $stringToWrite
+   }
+   else{#if not exists, create new
+        Add-Content C:\Windows\Temp\OfficeAutoScriptLog.txt $headerString
+        Add-Content C:\Windows\Temp\OfficeAutoScriptLog.txt $stringToWrite
+   }
+   } catch [Exception]{
+   Write-Host $_
+   $fileName = $_.InvocationInfo.ScriptName.Substring($_.InvocationInfo.ScriptName.LastIndexOf("\")+1)
+    WriteToLogFile -LNumber $_.InvocationInfo.ScriptLineNumber -FName $fileName -ActionError $_
+   }
+}
+
 Function Download-GPOOfficeInstallation {
 
     [CmdletBinding(SupportsShouldProcess=$true)]
@@ -28,6 +74,10 @@ Function Download-GPOOfficeInstallation {
     Process
     {
 	Write-Host 'Updating Config Files'
+<# write log#>
+    $lineNum = Get-CurrentLineNumber    
+    $filName = Get-CurrentFileName 
+    WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "Updating Config Files"
 	
 	if($OfficeVersion -eq "Office2013")
     {
@@ -55,6 +105,10 @@ Function Download-GPOOfficeInstallation {
 	$addNode.OfficeClientEdition = $Bitness
     $addNode.SourcePath = $UncPath
 	Write-Host 'Saving Download Configuration XML'	
+<# write log#>
+    $lineNum = Get-CurrentLineNumber    
+    $filName = Get-CurrentFileName 
+    WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "Saving Download Configuration XML"
 	$content.Save($downloadConfigFilePath)
 	
 	$content = [Xml](Get-Content $localInstallConfigFilePath)
@@ -64,9 +118,17 @@ Function Download-GPOOfficeInstallation {
 	$updatesNode = $content.Configuration.Updates
 	$updatesNode.UpdatePath = $UncPath
 	Write-Host 'Saving Install Configuration XML'
+    <# write log#>
+    $lineNum = Get-CurrentLineNumber    
+    $filName = Get-CurrentFileName 
+    WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "Saving Install Configuration XML"
 	$content.Save($installConfigFilePath)
 	
 	Write-Host 'Setting up Click2Run to download Office to UNC Path'
+<# write log#>
+    $lineNum = Get-CurrentLineNumber    
+    $filName = Get-CurrentFileName 
+    WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "Setting up Click2Run to download Office to UNC Path"
 	
 	Set-Location $UncPath
 	
@@ -74,9 +136,17 @@ Function Download-GPOOfficeInstallation {
 	$arguments = "/download", "$downloadConfigFileName"
 	
 	Write-Host 'Starting Download'
+<# write log#>
+    $lineNum = Get-CurrentLineNumber    
+    $filName = Get-CurrentFileName 
+    WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "Starting Download"
 	& $app @arguments
 	
 	Write-Host 'Download Complete'	
+<# write log#>
+    $lineNum = Get-CurrentLineNumber    
+    $filName = Get-CurrentFileName 
+    WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "Download Complete"
     }
     End
     {
@@ -125,19 +195,39 @@ Function Configure-GPOOfficeInstallation {
 
     Write-Host "Configuring Group Policy to Install Office Click-To-Run"
     Write-Host
+    <# write log#>
+    $lineNum = Get-CurrentLineNumber    
+    $filName = Get-CurrentFileName 
+    WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "Configuring Group Policy to Install Office Click-To-Run"
 
     Write-Host "Searching for GPO: $GpoName..." -NoNewline
+    <# write log#>
+    $lineNum = Get-CurrentLineNumber    
+    $filName = Get-CurrentFileName 
+    WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "Searching for GPO: $GpoName..."
 	$gpo = Get-GPO -Name $GpoName
 	
 	if(!$gpo -or ($gpo -eq $null))
 	{
+        <# write log#>
+        $lineNum = Get-CurrentLineNumber    
+        $filName = Get-CurrentFileName 
+        WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "The GPO $GpoName could not be found."
 		Write-Error "The GPO $GpoName could not be found."
 		Exit
 	}
 
     Write-Host "GPO Found"
+    <# write log#>
+    $lineNum = Get-CurrentLineNumber    
+    $filName = Get-CurrentFileName 
+    WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "GPO Found"
 
     Write-Host "Modifying GPO: $GpoName..." -NoNewline
+    <# write log#>
+    $lineNum = Get-CurrentLineNumber    
+    $filName = Get-CurrentFileName 
+    WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "Modifying GPO: $GpoName..."
 
 	$baseSysVolPath = "$env:LOGONSERVER\sysvol"
 
@@ -343,6 +433,12 @@ Function Configure-GPOOfficeInstallation {
     Write-Host ""
     Write-Host "The Group Policy '$GpoName' has been modified to install Office at Workstation Startup." -BackgroundColor DarkBlue
     Write-Host "Once Group Policy has refreshed on the Workstations then Office will install on next startup if the computer has access to the Network Share." -BackgroundColor DarkBlue
+    <# write log#>
+    $lineNum = Get-CurrentLineNumber    
+    $filName = Get-CurrentFileName 
+    WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "GPO Modified"
+    WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "The Group Policy '$GpoName' has been modified to install Office at Workstation Startup."
+    WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "Once Group Policy has refreshed on the Workstations then Office will install on next startup if the computer has access to the Network Share."
 
     }
 

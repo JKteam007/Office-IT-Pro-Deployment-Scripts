@@ -82,6 +82,19 @@ Add-Type -TypeDefinition $enum -ErrorAction SilentlyContinue
 
 [System.Collections.ArrayList]$missingFiles = @()
 
+function Get-CurrentLineNumber {
+    $MyInvocation.ScriptLineNumber
+}
+
+
+function Get-CurrentFileName{
+    $MyInvocation.ScriptName.Substring($MyInvocation.ScriptName.LastIndexOf("\")+1)
+}
+
+function Get-CurrentFunctionName {
+    (Get-Variable MyInvocation -Scope 1).Value.MyCommand.Name;
+}
+
 Function Write-Log {
  
     PARAM
@@ -147,6 +160,8 @@ Function Set-Reg {
     Catch
     {
         Write-Log -Message $_.Exception.Message -severity 3 -component $LogFileName
+        $fileName = $_.InvocationInfo.ScriptName.Substring($_.InvocationInfo.ScriptName.LastIndexOf("\")+1)
+        WriteToLogFile -LNumber $_.InvocationInfo.ScriptLineNumber -FName $fileName -ActionError $_
     }
 }
 
@@ -179,6 +194,8 @@ Function StartProcess {
     Catch
     {
         Write-Log -Message $_.Exception.Message -severity 1 -component "Office 365 Update Anywhere"
+        $fileName = $_.InvocationInfo.ScriptName.Substring($_.InvocationInfo.ScriptName.LastIndexOf("\")+1)
+        WriteToLogFile -LNumber $_.InvocationInfo.ScriptLineNumber -FName $fileName -ActionError $_
     }
 }
 
@@ -639,6 +656,10 @@ function Test-URL {
      $res.Close(); 
    } catch {
       Write-Host "Invalid UpdateSource. File Not Found: $url" -ForegroundColor Red
+      <# write log#>
+            $lineNum = Get-CurrentLineNumber    
+            $filName = Get-CurrentFileName 
+            WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "Invalid UpdateSource. File Not Found: $url"
       $validUrl = $false
       throw;
    }
@@ -930,6 +951,10 @@ Function Validate-UpdateSource() {
                  $missingFiles.Add($fullPath)
                  Write-Host "Source File Missing: $fullPath"
                  Write-Log -Message "Source File Missing: $fullPath" -severity 1 -component "Office 365 Update Anywhere" 
+                 <# write log#>
+            $lineNum = Get-CurrentLineNumber    
+            $filName = Get-CurrentFileName 
+            WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "Source File Missing: $fullPath"
               }     
               $validUpdateSource = $false
            }
@@ -1024,6 +1049,10 @@ Function Copy-OfficeSourceFiles() {
                  $missingFiles.Add($fullPath)
                  Write-Host "Source File Missing: $fullPath"
                  Write-Log -Message "Source File Missing: $fullPath" -severity 1 -component "Office 365 Update Anywhere" 
+                 <# write log#>
+            $lineNum = Get-CurrentLineNumber    
+            $filName = Get-CurrentFileName 
+            WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "Source File Missing: $fullPath"
               }     
               $validUpdateSource = $false
            }
@@ -1166,7 +1195,10 @@ Function Wait-ForOfficeCTRUpadate() {
 
     process {
        Write-Host "Waiting for Update process to Complete..."
-
+       <# write log#>
+            $lineNum = Get-CurrentLineNumber    
+            $filName = Get-CurrentFileName 
+            WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "Waiting for Update process to Complete..."
        [datetime]$operationStart = Get-Date
        [datetime]$totalOperationStart = Get-Date
 
@@ -1229,6 +1261,10 @@ Function Wait-ForOfficeCTRUpadate() {
                                 $displayText = $statusName + "`t" + $operationTime
 
                                 Write-Host $displayText
+                                <# write log#>
+            $lineNum = Get-CurrentLineNumber    
+            $filName = Get-CurrentFileName 
+            WriteToLogFile -LNumber $lineNum -FName $filName -ActionError $displayText
                             }
                         }
                     } else {
@@ -1244,14 +1280,26 @@ Function Wait-ForOfficeCTRUpadate() {
 
                              if ($operation.ToUpper().IndexOf("DOWNLOAD") -gt -1) {
                                 Write-Host "Downloading Update: " -NoNewline
+                                <# write log#>
+            $lineNum = Get-CurrentLineNumber    
+            $filName = Get-CurrentFileName 
+            WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "Downloading Update: "
                              }
 
                              if ($operation.ToUpper().IndexOf("APPLY") -gt -1) {
                                 Write-Host "Applying Update: " -NoNewline
+                                <# write log#>
+            $lineNum = Get-CurrentLineNumber    
+            $filName = Get-CurrentFileName 
+            WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "Applying Update:"
                              }
 
                              if ($operation.ToUpper().IndexOf("FINALIZE") -gt -1) {
                                 Write-Host "Finalizing Update: " -NoNewline
+                                <# write log#>
+            $lineNum = Get-CurrentLineNumber    
+            $filName = Get-CurrentFileName 
+            WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "Finalizing Update:"
                              }
 
                              #Write-Host $displayValue
@@ -1266,6 +1314,10 @@ Function Wait-ForOfficeCTRUpadate() {
            }
 
            if ($startTime -lt (Get-Date).AddHours(-$TimeOutInMinutes)) {
+           <# write log#>
+            $lineNum = Get-CurrentLineNumber    
+            $filName = Get-CurrentFileName 
+            WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "Waiting for Update Timed-Out"
               throw "Waiting for Update Timed-Out"
               break;
            }
@@ -1287,17 +1339,33 @@ Function Wait-ForOfficeCTRUpadate() {
        }
 
        Write-Host $displayValue
+       <# write log#>
+            $lineNum = Get-CurrentLineNumber    
+            $filName = Get-CurrentFileName 
+            WriteToLogFile -LNumber $lineNum -FName $filName -ActionError $displayValue
 
        $totalOperationTime = getOperationTime -OperationStart $totalOperationStart
 
        if ($updateRunning) {
           if ($failure) {
             Write-Host "Update Failed"
+            <# write log#>
+            $lineNum = Get-CurrentLineNumber    
+            $filName = Get-CurrentFileName 
+            WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "Update Failed"
           } else {
             Write-Host "Update Completed - Total Time: $totalOperationTime"
+            <# write log#>
+            $lineNum = Get-CurrentLineNumber    
+            $filName = Get-CurrentFileName 
+            WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "Update Completed - Total Time: $totalOperationTime"
           }
        } else {
           Write-Host "Update Not Running"
+          <# write log#>
+            $lineNum = Get-CurrentLineNumber    
+            $filName = Get-CurrentFileName 
+            WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "Update Not Running"
        } 
     }
 }
@@ -1400,6 +1468,27 @@ function Create-FileShare() {
           25 {Write-Host "Share:$name Path:$path Result:Network Name Not Found" -foregroundcolor red -backgroundcolor yellow;break}
           default {Write-Host "Share:$name Path:$path Result:*** Unknown Error ***" -foregroundcolor red -backgroundcolor yellow;break}
      }
+     $switchVar = ""
+     switch ($($R.ReturnValue))
+     {
+          
+          0 { break}
+          2 {$switchVar= "Share:$name Path:$path Result:Access Denied"}
+          8 {$switchVar= "Share:$name Path:$path Result:Unknown Failure"}
+          9 {$switchVar= "Share:$name Path:$path Result:Invalid Name"}
+          10 {$switchVar= "Share:$name Path:$path Result:Invalid Level"}
+          21 {$switchVar= "Share:$name Path:$path Result:Invalid Parameter"}
+          22 {$switchVar= "Share:$name Path:$path Result:Duplicate Share"}
+          23 {$switchVar= "Share:$name Path:$path Result:Reedirected Path"}
+          24 {$switchVar= "Share:$name Path:$path Result:Unknown Device or Directory"}
+          25 {$switchVar= "Share:$name Path:$path Result:Network Name Not Found"}
+          default {$switchVar= "Share:$name Path:$path Result:*** Unknown Error ***"}
+     }
+     <# write log#>
+            $lineNum = Get-CurrentLineNumber    
+            $filName = Get-CurrentFileName 
+            WriteToLogFile -LNumber $lineNum -FName $filName -ActionError $switchVar
+
 }
 
 function Get-Fileshare() {
@@ -1420,7 +1509,10 @@ function Get-Fileshare() {
 }
 
 function Check-AdminAccess() {
-If (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(`    [Security.Principal.WindowsBuiltInRole] "Administrator")){    throw "You do not have Administrator rights to run this script!`nPlease re-run this script as an Administrator!"}
+If (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(`    [Security.Principal.WindowsBuiltInRole] "Administrator")){    <# write log#>
+            $lineNum = Get-CurrentLineNumber    
+            $filName = Get-CurrentFileName 
+            WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "You do not have Administrator rights to run this script!`nPlease re-run this script as an Administrator!"    throw "You do not have Administrator rights to run this script!`nPlease re-run this script as an Administrator!"}
 }
 
 function Get-LargestDrive() {
@@ -1477,6 +1569,10 @@ function Get-ChannelXml() {
               if (Test-Path -Path $XMLFilePath) {
                  $downloadFile = $false
               } else {
+                <# write log#>
+            $lineNum = Get-CurrentLineNumber    
+            $filName = Get-CurrentFileName 
+            WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "File missing $FolderPath\ofl.cab"
                 throw "File missing $FolderPath\ofl.cab"
               }
           }
@@ -1587,6 +1683,10 @@ function Get-ChannelLatestVersion() {
               if (Test-Path -Path $CABFilePath) {
                  $downloadFile = $false
               } else {
+              <# write log#>
+            $lineNum = Get-CurrentLineNumber    
+            $filName = Get-CurrentFileName 
+            WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "File missing $FolderPath\$channelShortName\v64.cab or $FolderPath\$channelShortName\v64.cab"
                 throw "File missing $FolderPath\$channelShortName\v64.cab or $FolderPath\$channelShortName\v64.cab"
               }
           }
@@ -1655,6 +1755,10 @@ function Check-FileDependencies() {
       foreach ($file in $Files) {
         $fileExists = Test-ItemPathUNC -Path $file
         if (!($fileExists)) {
+        <# write log#>
+            $lineNum = Get-CurrentLineNumber    
+            $filName = Get-CurrentFileName 
+            WriteToLogFile -LNumber $lineNum -FName $filName -ActionError "Missing Dependency File $file" 
                 throw "Missing Dependency File $file"    
         }
         . $file
@@ -1890,5 +1994,30 @@ function Remove-ProductLanguage() {
             }
         }
     }
+   }
+}
+Function WriteToLogFile() {
+    param( 
+      [Parameter(Mandatory=$true)]
+      [string]$LNumber,
+      [Parameter(Mandatory=$true)]
+      [string]$FName,
+      [Parameter(Mandatory=$true)]
+      [string]$ActionError
+   )
+   try{
+   $headerString = "Time".PadRight(30, ' ') + "Line Number".PadRight(15,' ') + "FileName".PadRight(60,' ') + "Action"
+   $stringToWrite = $(Get-Date -Format G).PadRight(30, ' ') + $($LNumber).PadRight(15, ' ') + $($FName).PadRight(60,' ') + $ActionError
+   #check if file exists, create if it doesn't
+   if(Test-Path C:\Windows\Temp\OfficeAutoScriptLog.txt){#if exists, append
+   
+        Add-Content C:\Windows\Temp\OfficeAutoScriptLog.txt $stringToWrite
+   }
+   else{#if not exists, create new
+        Add-Content C:\Windows\Temp\OfficeAutoScriptLog.txt $headerString
+        Add-Content C:\Windows\Temp\OfficeAutoScriptLog.txt $stringToWrite
+   }
+   } catch [Exception]{
+   Write-Host $_
    }
 }
