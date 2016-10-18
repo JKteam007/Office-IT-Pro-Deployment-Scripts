@@ -1596,6 +1596,22 @@ function odtAddProduct(xmlDoc) {
         addNode.removeAttribute("OfficeMgmtCOM");
     }
 
+    var updateNode = xmlDoc.createElement("Updates");
+    var nodes = xmlDoc.documentElement.getElementsByTagName("Updates");
+    if (nodes.length > 0) {
+        updateNode = xmlDoc.documentElement.getElementsByTagName("Updates")[0];
+        if ($("#office2016Select").hasClass("is-selected")) {
+            var selectedBranch = $("#cbUpdateBranch").val();
+            updateNode.removeAttribute("Branch");
+            updateNode.setAttribute("Channel", selectedBranch);
+            updateNode.removeAttribute("AutoUpgrade");
+        } else {
+            updateNode.removeAttribute("Channel");
+            //updateNode.AddAttribute("AutoUpgrade");
+            //updateNode.setAttribute("AutoUpgrade","FALSE");
+        }
+    }
+
 
     var productCount = getAddProductCount(xmlDoc);
     if (productCount == 0) {
