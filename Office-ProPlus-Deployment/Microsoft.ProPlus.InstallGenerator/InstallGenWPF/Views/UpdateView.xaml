@@ -98,7 +98,7 @@
                                         </Button>
                             
                                         <ComboBox x:Name="UpdateBranch" Height="35" SelectedIndex="0"  Grid.Column="2"  Style="{StaticResource MetroComboBoxStyle}"
-                                            FontSize="20" ItemsSource="{Binding Branches}" DisplayMemberPath="Name" SelectionChanged="UpdateBranch_OnSelectionChanged" />
+                                            FontSize="20" ItemsSource="{Binding Branches}" DisplayMemberPath="Name" SelectionChanged="UpdateBranch_OnSelectionChanged" IsEnabled="False" />
                                    
                                     </Grid>
 
