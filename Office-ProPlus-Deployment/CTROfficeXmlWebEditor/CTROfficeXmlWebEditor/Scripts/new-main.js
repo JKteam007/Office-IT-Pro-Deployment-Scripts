@@ -210,6 +210,25 @@ $(document).ready(function () {
         return false;
     });
 
+    
+
+    
+        
+    $("#cbBranch").change(function () {
+        var temp4 = $("#cbBranch").val();
+        var temp = $("#cbBranch")[0].selectedIndex;
+        $("#cbUpdateBranch option:eq("+temp+")").prop('selected', true);
+        $('#cbUpdateBranch').next('span').text(temp4);
+    });
+
+    $("#cbUpdateBranch").change(function () {
+        var temp4 = $("#cbBranch").val();
+        var temp = $("#cbBranch")[0].selectedIndex;
+        $("#cbUpdateBranch option:eq(" + temp + ")").prop('selected', true);
+        $('#cbUpdateBranch').next('span').text(temp4);
+        alert("The Update Channel MUST MATCH the Microsoft Office Channel");
+    });
+
     $("#btRemoveProduct").on('click', function () {
         var xmlDoc = getXmlDocument();
 
