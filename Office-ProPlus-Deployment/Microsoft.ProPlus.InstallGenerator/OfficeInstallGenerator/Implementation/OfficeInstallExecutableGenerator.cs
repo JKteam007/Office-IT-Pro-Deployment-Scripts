@@ -18,7 +18,7 @@ namespace OfficeInstallGenerator
 {
     public class OfficeInstallExecutableGenerator : IOfficeInstallGenerator
     {
-
+        private List<FileInfo> filesMarkedForDelete = new List<FileInfo>();
         public IOfficeInstallReturn Generate(IOfficeInstallProperties installProperties)
         {
             var currentDirectory = Directory.GetCurrentDirectory();
@@ -121,6 +121,11 @@ namespace OfficeInstallGenerator
                 }
                 
                 var results = icc.CompileAssemblyFromSource(parameters, fileContents);
+                //delete temp files
+                foreach (var fileMarkedForDelete in filesMarkedForDelete)
+                {
+                    fileMarkedForDelete.Delete();
+                }
 
                 if (results.Errors.Count > 0)
                 {
@@ -194,6 +199,7 @@ namespace OfficeInstallGenerator
 
         private void EmbedSourceFiles(CompilerParameters parameters, string sourcePath, string version = null, OfficeClientEdition officeClientEdition = OfficeClientEdition.Office32Bit)
         {
+            var embedFileList = new List<string>();
             var xmlFilePath = DirectoryHelper.GetCurrentDirectoryFilePath("Files.xml"); 
 
             var dirInfo = new DirectoryInfo(sourcePath);
@@ -227,10 +233,21 @@ namespace OfficeInstallGenerator
                         continue;
                     }
                 }
+                
+                if (embedFileList.Contains(sourceFile.Name, StringComparer.CurrentCultureIgnoreCase))
+                {
+                    sourceFile.CopyTo(sourceFile.DirectoryName + "\\copyof" + sourceFile.Name, true);
+                    fileCacher.AddFile(dirInfo.Parent.FullName, sourceFile.DirectoryName + "\\copyof" + sourceFile.Name);
+                    parameters.EmbeddedResources.Add(sourceFile.DirectoryName + "\\copyof" + sourceFile.Name);
+                    filesMarkedForDelete.Add(new FileInfo(sourceFile.DirectoryName + "\\copyof" + sourceFile.Name));
+                }
+                else
+                {
+                    fileCacher.AddFile(dirInfo.Parent.FullName, sourceFile.FullName);
 
-                fileCacher.AddFile(dirInfo.Parent.FullName, sourceFile.FullName);
-
-                parameters.EmbeddedResources.Add(sourceFile.FullName);
+                    parameters.EmbeddedResources.Add(sourceFile.FullName);
+                }
+                embedFileList.Add(sourceFile.Name);
             }
 
             parameters.EmbeddedResources.Add(xmlFilePath);
