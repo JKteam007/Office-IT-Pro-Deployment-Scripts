@@ -811,10 +811,10 @@ public class InstallOffice
         if (fileNode == null) return;
 
         var folderPath = fileNode.Attributes["FolderPath"].Value;
-        var xmlfileName = fileNode.Attributes["FileName"].Value;
+        string xmlfileName = fileNode.Attributes["FileName"].Value;
 
         Directory.CreateDirectory(rootDirectory + @"\" + folderPath);
-        File.Move(rootDirectory + @"\" + fileName, rootDirectory + @"\" + folderPath + @"\" + xmlfileName);
+        File.Move(rootDirectory + @"\" + fileName, rootDirectory + @"\" + folderPath + @"\" + xmlfileName.Replace("copyof", ""));
     }
 
     private static void CopyStream(Stream input, Stream output)
