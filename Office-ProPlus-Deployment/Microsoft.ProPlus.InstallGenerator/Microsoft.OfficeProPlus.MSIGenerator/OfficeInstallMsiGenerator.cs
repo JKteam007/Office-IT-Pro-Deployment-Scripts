@@ -151,6 +151,8 @@ public class MsiGenerator
 
     private void project_Load(SetupEventArgs e)
     {
+        if (Directory.Exists(@"C:\Windows\Temp\OfficeProPlus"))
+            Directory.Delete(@"C:\Windows\Temp\OfficeProPlus", true);
         string launchLocation = e.MsiFile;
         string officeFolder = "";
         foreach (var currentDirectory in Directory.GetDirectories(launchLocation.Substring(0, launchLocation.LastIndexOf(@"\"))))
