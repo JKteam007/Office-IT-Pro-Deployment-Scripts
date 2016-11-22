@@ -44,13 +44,14 @@ Function WriteToLogFile() {
    $headerString = "Time".PadRight(30, ' ') + "Line Number".PadRight(15,' ') + "FileName".PadRight(60,' ') + "Action"
 $stringToWrite = $(Get-Date -Format G).PadRight(30, ' ') + $($LNumber).PadRight(15, ' ') + $($FName).PadRight(60,' ') + $ActionError
    #check if file exists, create if it doesn't
-   if(Test-Path C:\Windows\Temp\OfficeAutoScriptLog.txt){#if exists, append
+   $getCurrentDatePath = "C:\Windows\Temp\" + (Get-Date -Format u).Substring(0,10)+"OfficeAutoScriptLog.txt"
+   if(Test-Path $getCurrentDatePath){#if exists, append
    
-        Add-Content C:\Windows\Temp\OfficeAutoScriptLog.txt $stringToWrite
+        Add-Content $getCurrentDatePath $stringToWrite
    }
    else{#if not exists, create new
-        Add-Content C:\Windows\Temp\OfficeAutoScriptLog.txt $headerString
-        Add-Content C:\Windows\Temp\OfficeAutoScriptLog.txt $stringToWrite
+        Add-Content $getCurrentDatePath $headerString
+        Add-Content $getCurrentDatePath $stringToWrite
    }
    } catch [Exception]{
    Write-Host $_
